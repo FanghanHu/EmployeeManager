@@ -52,8 +52,8 @@ function insertData(tableName, data) {
  * @param {Object} data should contain an id
  * @returns {Promise}
  */
-function updateData(tableName, data) {
-    return query("UPDATE ?? SET ?;", [tableName, data]);
+function updateData(tableName, data, id) {
+    return query("UPDATE ?? SET ? WHERE id = ?;", [tableName, data, id]);
 }
 
 function deleteData(tableName, id) {
@@ -82,6 +82,43 @@ function selectEmployeeByDepartment(departmentId) {
 
 function selectAllDepartments() {
     return query('SELECT * FROM department');
+}
+
+function promptForEmployeeInfo() {
+    return new Promise(resolve => {
+        selectAllEmployees().then(employees => {
+            selectAllRoles().then(roles => {
+                inquirer.prompt([
+                    {
+                        name: "first_name",
+                        message:"First name:",
+                    },
+                    {
+                        name:"last_name",
+                        message:"Last name:"
+                    },
+                    {
+                        name:"role_id",
+                        message:"Please choose a role:",
+                        type:"list",
+                        choices:[{name: "No role", value: null}, ...roles.map((el) => {
+                            return {name:el.title, value:el.id};
+                        })]
+                    },
+                    {
+                        name:"manager_id",
+                        message:"Please choose a manager:",
+                        type:"list",
+                        choices:[{name: "No Manager", value: null}, ...employees.map((el) => {
+                            return {name:el.name, value:el.id};
+                        })]
+                    }
+                ]).then(response => {
+                    resolve(response);
+                });
+            });
+        });
+    })
 }
 
 function mainMenu() {
@@ -148,46 +185,35 @@ function mainMenu() {
                 });
                 break;
             case "Add Employee":
+                promptForEmployeeInfo().then(employee => {
+                    insertData('employee', employee).then(()=>{
+                        console.clear();
+                        // noinspection JSUnresolvedVariable
+                        console.log(`${employee.first_name} ${employee.last_name} Added.`);
+                        mainMenu();
+                    });
+                });
+                break;
+            case "Update Employee":
                 selectAllEmployees().then(employees => {
-                    selectAllRoles().then(roles => {
-                        inquirer.prompt([
-                            {
-                                name: "first_name",
-                                message:"First name:",
-                            },
-                            {
-                                name:"last_name",
-                                message:"Last name:"
-                            },
-                            {
-                                name:"role_id",
-                                message:"Please choose a role:",
-                                type:"list",
-                                choices:[{name: "No role", value: null}, ...roles.map((el) => {
-                                    return {name:el.title, value:el.id};
-                                })]
-                            },
-                            {
-                                name:"manager_id",
-                                message:"Please choose a manager:",
-                                type:"list",
-                                choices:[{name: "No Manager", value: null}, ...employees.map((el) => {
-                                    return {name:el.name, value:el.id};
-                                })]
-                            }
-                        ]).then(response => {
-                            insertData('employee', response).then(()=>{
+                    inquirer.prompt([{
+                        name:"employee_id",
+                        message:"Who would you like to edit?",
+                        type:"list",
+                        choices: employees.map((el)=>{
+                            return {name: el.id + " " + el.name, value: el.id};
+                        })
+                    }]).then(({employee_id}) => {
+                        promptForEmployeeInfo().then(employee => {
+                            updateData('employee', employee, employee_id).then(()=> {
                                 console.clear();
-                                console.log(response);
                                 // noinspection JSUnresolvedVariable
-                                console.log(`${response.first_name} ${response.last_name} Added.`);
+                                console.log(`${employee.first_name} ${employee.last_name} Updated.`);
                                 mainMenu();
                             });
                         });
                     });
                 });
-                break;
-            case "Update Employee":
                 break;
             case "Remove Employee":
                 break;
